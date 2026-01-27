@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 #include <cuda_bf16.h>
+#include <cuda_fp8.h>
+#include <cuda_fp4.h>
 
 constexpr int WARP_SIZE = 32;
 

@@ -17,6 +17,8 @@ app = modal.App("sm100-matmul", image=image)
 def get_module():
     import torch
     import torch.utils.cpp_extension
+    
+    torch.backends.cuda.matmul.allow_tf32 = True
 
     print(f"{torch.__version__=}")
     print(f"{torch.version.cuda=}")
