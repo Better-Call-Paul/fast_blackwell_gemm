@@ -4,3 +4,11 @@
 *.ptx
 *.cubin
 *.fatbin
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.claude/
+
+*.json.gz
