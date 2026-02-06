@@ -9,11 +9,11 @@
 #include <torch/library.h>
 
 constexpr int WARP_SIZE = 32;
+constexpr int NUM_WARPS = 4;
 
 __host__ __device__ inline
 constexpr int cdiv(int a, int b) { return (a + b - 1) / b; }
 
-// Basic CUDA error checking
 #define CUDA_CHECK(err) \
     do { \
         cudaError_t err_ = (err); \
