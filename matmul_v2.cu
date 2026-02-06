@@ -10,8 +10,8 @@ __global__ void basic_tcgen_matmul(const __nv_bfloat16 *A, const __nv_bfloat16 *
     int lane_id = threadIdx.x % WARP_SIZE;
 
     int grid_n = N / BN;
-    int block_id_n = block_id / grid_n;
-    int block_id_m = block_id % grid_n;
+    int block_id_n = block_id % grid_n;
+    int block_id_m = block_id / grid_n;
 
     int offset_n = BN * block_id_n;
     int offset_m = BM * block_id_m;
@@ -25,29 +25,30 @@ __global__ void basic_tcgen_matmul(const __nv_bfloat16 *A, const __nv_bfloat16 *
 
     __shared__ uint64_t mbars[1];
     const int mbarrier_address = static_cast<int>(__cvta_generic_to_shared(mbars));
-    __shared__ int tmem_address[1];
+    __shared__ int tmem_addr[1];
 
     if (warp_id == 0 && elect_sync())
     {
-        mbarrier_init(mbarrier_address, 1)
+        mbarrier_init(mbarrier_address, 1);
         asm volatile("fence.mbarrier_init.release.cluster;");
     }
     else if (warp_id == 1)
     {
-        int tmem_address = static_cast<int>(__cvta_generic_to_shared(tmem_address));
-        asm volatile("tcgen05.alloc.cta_group::1.sync.aligned.shared::cta.b32 [%0], %1;" :: "r"(tmem_address), "r"(BN));
+        const int addr = static_cast<int>(__cvta_generic_to_shared(tmem_addr));
+        asm volatile("tcgen05.alloc.cta_group::1.sync.aligned.shared::cta.b32 [%0], %1;" :: "r"(addr), "r"(BN));
     }
-    __sync_threads();
-    const int tensor_memory_address = tmem_address[0];
 
+    __syncthreads();
+
+    const int tensor_memory_address = tmem_addr[0];
     int phase = 0;
 
     // https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-instruction-descriptor
     constexpr uint32_t i_desc = (1U << 4U)   // dtype=FP32
                             | (1U << 7U)   // atype=BF16
                             | (1U << 10U)  // btype=BF16
-                            | ((uint32_t)BLOCK_N >> 3U << 17U)  // MMA_N
-                            | ((uint32_t)BLOCK_M >> 4U << 24U)  // MMA_M
+                            | ((uint32_t)BN >> 3U << 17U)  // MMA_N
+                            | ((uint32_t)BM >> 4U << 24U)  // MMA_M
                             ;
 
     for (int i = 0; i < K; i += BK)
