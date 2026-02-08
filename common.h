@@ -10,6 +10,8 @@
 
 constexpr int WARP_SIZE = 32;
 constexpr int NUM_WARPS = 4;
+constexpr int THREAD_BLOCK_SIZE = WARP_SIZE * NUM_WARPS;
+constexpr int TMA_LOAD_WIDTH = 64;
 
 __host__ __device__ inline
 constexpr int cdiv(int a, int b) { return (a + b - 1) / b; }
