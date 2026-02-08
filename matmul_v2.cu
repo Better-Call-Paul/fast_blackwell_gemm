@@ -97,6 +97,8 @@ __global__ __launch_bounds__(THREAD_BLOCK_SIZE) void basic_tcgen_matmul(const __
                     tcgen05_mma_bf16(tensor_memory_address, a_descr, b_descr, i_desc, 1);
                 }
             }
+            asm volatile("tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.b64 [%0];"
+                  :: "r"(mbarrier_address) : "memory");
         }
         
         mbarrier_wait(mbarrier_address, phase);
@@ -106,12 +108,35 @@ __global__ __launch_bounds__(THREAD_BLOCK_SIZE) void basic_tcgen_matmul(const __
     asm volatile("tcgen05.fence::after_thread_sync;");
 
     // load from tmem into smem
-    for ()
+    for (int n = 0; n < BN / 8; ++n)
     {
+        float tmp[8];
+        const int addr = tensor_memory_address + ((warp_id * 32) << 16) + (n * 8);
 
+        asm volatile("tcgen05.ld.sync.aligned.32x32b.x8.b32 {%0, %1, %2, %3, %4, %5, %6, %7}, [%8];" 
+        : "=f"(tmp[0]), "=f"(tmp[1]), "=f"(tmp[2]), "=f"(tmp[3]), 
+        "=f"(tmp[4]), "=f"(tmp[5]), "=f"(tmp[6]), "=f"(tmp[7])
+        : "r"(addr)
+        );
+        asm volatile("tcgen05.wait::ld.sync.aligned;");
+
+        __nv_bfloat162 output[4];
+
+        for (int i = 0; i < 4; ++i)
+        {
+            output[i] = __float22bfloat162_rn({tmp[i * 2], tmp[i * 2 + 1]});
+        }
+
+        __nv_bfloat16 *c_output_ptr = C + (offset_m + thread_id) * N + (offset_n + n * 8);
+        reinterpret_cast<int4 *>(c_output_ptr)[0] = reinterpret_cast<int4 *>(output)[0];
     }
 
     // de-alloc tmem
+    __syncthreads();
+    if (warp_id == 0)
+    {
+        asm volatile("tcgen05.dealloc.cta_group::1.sync.aligned.b32 %0, %1;" :: "r"(tensor_memory_address), "r"(BN));
+    }
 }
 
 template<int BM, int BN, int BK>
