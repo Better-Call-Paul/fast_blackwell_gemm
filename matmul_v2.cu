@@ -52,16 +52,16 @@ __global__ __launch_bounds__(THREAD_BLOCK_SIZE) void basic_tcgen_matmul(const __
                             ;
 
     const int iterations = K / BK;
-    for (int i = 0; i < iterations; i++)
+    for (int iter = 0; iter < iterations; iter++)
     {
-        // tma load 
+        // tma load
         if (warp_id == 0 && elect_sync())
         {
-            for (int k = 0; k < BK / TMA_LOAD_WIDTH; ++k)
+            for (int k = 0; k < BK / SWIZZLE_WIDTH; ++k)
             {
-                int offset_k = i * BK + k * TMA_LOAD_WIDTH;
-                tma_2d_gmem2smem(a_smem + k * BM * TMA_LOAD_WIDTH * sizeof(__nv_bfloat16), a_tensor_map, offset_k, offset_m, mbarrier_address);
-                tma_2d_gmem2smem(b_smem + k * BN * TMA_LOAD_WIDTH * sizeof(__nv_bfloat16), b_tensor_map, offset_k, offset_n, mbarrier_address);
+                int offset_k = iter * BK + k * SWIZZLE_WIDTH;
+                tma_2d_gmem2smem(a_smem + k * BM * SWIZZLE_WIDTH * sizeof(__nv_bfloat16), a_tensor_map, offset_k, offset_m, mbarrier_address);
+                tma_2d_gmem2smem(b_smem + k * BN * SWIZZLE_WIDTH * sizeof(__nv_bfloat16), b_tensor_map, offset_k, offset_n, mbarrier_address);
             }
 
             constexpr int expected_bytes_to_be_recieved = (BM + BN) * BK * sizeof(__nv_bfloat16);
@@ -76,24 +76,42 @@ __global__ __launch_bounds__(THREAD_BLOCK_SIZE) void basic_tcgen_matmul(const __
 
         // mma
         if (warp_id == 0 && elect_sync())
-        {
-            for ()
+        {   
             {
-                tcgen05_mma_bf16(, 0);
+                // first iteration
+                tcgen05_mma_bf16(tensor_memory_address, make_smem_desc(a_smem), make_smem_desc(b_smem), i_desc, iter);
+                for (int k2 = 1; k2 < SWIZZLE_WIDTH / 16; ++k2)
+                {
+                    const uint64_t a_descr = make_smem_desc(a_smem + k2 * 16 * sizeof(__nv_bfloat16));
+                    const uint64_t b_descr = make_smem_desc(b_smem + k2 * 16 * sizeof(__nv_bfloat16));
+                    tcgen05_mma_bf16(tensor_memory_address, a_descr, b_descr, i_desc, 1);
+                }
             }
 
-
-            for ()
+            for (int k1 = 1; k1 < BK / SWIZZLE_WIDTH; ++k1)
             {
-                tcgen05_mma_bf16(, 0);
+                for (int k2 = 0; k2 < SWIZZLE_WIDTH / 16; ++k2)
+                {
+                    const uint64_t a_descr = make_smem_desc(a_smem + (k1 * BM * SWIZZLE_WIDTH * sizeof(__nv_bfloat16)) + (k2 * 16 * sizeof(__nv_bfloat16)));
+                    const uint64_t b_descr = make_smem_desc(b_smem + (k1 * BN * SWIZZLE_WIDTH * sizeof(__nv_bfloat16)) + (k2 * 16 * sizeof(__nv_bfloat16)));
+                    tcgen05_mma_bf16(tensor_memory_address, a_descr, b_descr, i_desc, 1);
+                }
             }
         }
+        
+        mbarrier_wait(mbarrier_address, phase);
+        phase ^= 1;
+    }
 
-        // load from tmem into registers
+    asm volatile("tcgen05.fence::after_thread_sync;");
+
+    // load from tmem into smem
+    for ()
+    {
 
     }
 
-    // each thread will de-alloc tmem
+    // de-alloc tmem
 }
 
 template<int BM, int BN, int BK>
@@ -102,8 +120,8 @@ void matmul_v2_launch(const __nv_bfloat16 *A, const __nv_bfloat16 *B, __nv_bfloa
     CUtensorMap a_tensor_map, b_tensor_map;
 
     // make maps on host
-    init_tmap_2d_simple(&a_tensor_map, A, M, K, BM, TMA_LOAD_WIDTH, CUtensorMapSwizzle::CU_TENSOR_MAP_SWIZZLE_128B);
-    init_tmap_2d_simple(&b_tensor_map, B, N, K, BN, TMA_LOAD_WIDTH, CUtensorMapSwizzle::CU_TENSOR_MAP_SWIZZLE_128B);
+    init_tmap_2d_simple(&a_tensor_map, A, M, K, BM, SWIZZLE_WIDTH, CUtensorMapSwizzle::CU_TENSOR_MAP_SWIZZLE_128B);
+    init_tmap_2d_simple(&b_tensor_map, B, N, K, BN, SWIZZLE_WIDTH, CUtensorMapSwizzle::CU_TENSOR_MAP_SWIZZLE_128B);
 
     int grid = (M * N) / (BM * BN);
     int TB_size = THREAD_BLOCK_SIZE;

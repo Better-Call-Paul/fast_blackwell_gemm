@@ -11,7 +11,7 @@
 constexpr int WARP_SIZE = 32;
 constexpr int NUM_WARPS = 4;
 constexpr int THREAD_BLOCK_SIZE = WARP_SIZE * NUM_WARPS;
-constexpr int TMA_LOAD_WIDTH = 64;
+constexpr int SWIZZLE_WIDTH = 64;
 
 __host__ __device__ inline
 constexpr int cdiv(int a, int b) { return (a + b - 1) / b; }
@@ -25,7 +25,8 @@ constexpr int cdiv(int a, int b) { return (a + b - 1) / b; }
         } \
     } while (0)
 
-__device__ inline uint32_t elect_sync()
+__device__ inline
+uint32_t elect_sync()
 {
     uint32_t pred = 0;
     asm volatile(
@@ -40,7 +41,8 @@ __device__ inline uint32_t elect_sync()
     return pred;
 }
 
-__device__ inline void mbarrier_init(int mbarrier_address, int count)
+__device__ inline
+void mbarrier_init(int mbarrier_address, int count)
 {
     asm volatile("mbarrier.init.shared::cta.b64 [%0], %1;" :: "r"(mbarrier_address), "r"(count));
 }
@@ -129,7 +131,8 @@ inline void init_tmap_2d_simple(
 }
 
 template<int CTA_GROUP = 1>
-__device__ inline void tcgen05_mma_bf16(int tmem_address, uint64_t a_descr, uint64_t b_descr, uint32_t i_descr, int enable_input_d)
+__device__ inline
+void tcgen05_mma_bf16(int tmem_address, uint64_t a_descr, uint64_t b_descr, uint32_t i_descr, int enable_input_d)
 {
     asm volatile(
         "{\n\t"
@@ -141,5 +144,11 @@ __device__ inline void tcgen05_mma_bf16(int tmem_address, uint64_t a_descr, uint
     );
 }
 
+__device__ inline 
+uint64_t make_smem_desc(int addr)
+{
+	const int stride_byte_offset = 8 * SWIZZLE_WIDTH * sizeof(__nv_bfloat16); // row * col, 128B swizzle pattern repeats every 8 rows
+	return desc_encode(addr) | (desc_encode(stride_byte_offset) << 32ULL) | (1ULL << 46ULL) | (2ULL << 61ULL);
+}
 
 
