@@ -11,7 +11,7 @@ __global__ void basic_matmul(const __nv_bfloat16 *A, const __nv_bfloat16 *B, __n
         float temp = 0.0f;
         for (int i = 0; i < K; ++i)
         {
-            temp += __bfloat162float(A[row * K + i]) * __bfloat162float(B[i * N + col]);
+            temp += __bfloat162float(A[row * K + i]) * __bfloat162float(B[col * K + i]);
         }
         C[row * N + col] = __float2bfloat16(temp);
     }

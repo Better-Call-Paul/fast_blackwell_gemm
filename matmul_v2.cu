@@ -60,8 +60,8 @@ __global__ __launch_bounds__(THREAD_BLOCK_SIZE) void basic_tcgen_matmul(const __
             for (int k = 0; k < BK / SWIZZLE_WIDTH; ++k)
             {
                 int offset_k = iter * BK + k * SWIZZLE_WIDTH;
-                tma_2d_gmem2smem(a_smem + k * BM * SWIZZLE_WIDTH * sizeof(__nv_bfloat16), a_tensor_map, offset_k, offset_m, mbarrier_address);
-                tma_2d_gmem2smem(b_smem + k * BN * SWIZZLE_WIDTH * sizeof(__nv_bfloat16), b_tensor_map, offset_k, offset_n, mbarrier_address);
+                tma_2d_gmem2smem(a_smem + k * BM * SWIZZLE_WIDTH * sizeof(__nv_bfloat16), &a_tensor_map, offset_k, offset_m, mbarrier_address);
+                tma_2d_gmem2smem(b_smem + k * BN * SWIZZLE_WIDTH * sizeof(__nv_bfloat16), &b_tensor_map, offset_k, offset_n, mbarrier_address);
             }
 
             constexpr int expected_bytes_to_be_recieved = (BM + BN) * BK * sizeof(__nv_bfloat16);

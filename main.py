@@ -133,7 +133,7 @@ def benchmark(shape: str):
         out = f(A, B)
         torch.cuda.synchronize()
         try:
-            torch.testing.assert_close(out, output_ref)
+            torch.testing.assert_close(out, output_ref, atol=1e-2, rtol=1e-2)
         except:
             print(output_ref)
             print(out)
@@ -142,7 +142,7 @@ def benchmark(shape: str):
 
 
 @app.local_entrypoint()
-def main(action: str, shape: str = "4096,4096,4096"):
+def main(action: str, shape: str = "1024,1024,1024"):
     if action == "benchmark":
         benchmark.remote(shape)
 

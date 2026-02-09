@@ -26,7 +26,7 @@ __global__ void basic_tiled_matmul(const __nv_bfloat16 *A, const __nv_bfloat16 *
         int b_global_col = blockIdx.x * BN + b_local_col;
 
         a_mem[a_local_row * BK + a_local_col] = __bfloat162float(A[a_global_row * K + a_global_col]);
-        b_mem[b_local_row * BN + b_local_col] = __bfloat162float(B[b_global_row * N + b_global_col]);
+        b_mem[b_local_row * BN + b_local_col] = __bfloat162float(B[b_global_col * K + b_global_row]);
 
         __syncthreads();
 
