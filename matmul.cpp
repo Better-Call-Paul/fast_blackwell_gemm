@@ -7,6 +7,7 @@ typedef void MatmulFn(const nv_bfloat16 *A, const nv_bfloat16 *B, nv_bfloat16 *C
 MatmulFn matmul_v0;
 MatmulFn matmul_v1;
 MatmulFn matmul_v2;
+MatmulFn matmul_v3;
 
 template <MatmulFn matmul_fn>
 at::Tensor matmul(const at::Tensor& A, const at::Tensor& B) {
@@ -27,4 +28,5 @@ TORCH_LIBRARY(my_matmul, m) {
   m.def("matmul_v0(Tensor A, Tensor B) -> Tensor"); m.impl("matmul_v0", &matmul<matmul_v0>);
   m.def("matmul_v1(Tensor A, Tensor B) -> Tensor"); m.impl("matmul_v1", &matmul<matmul_v1>);
   m.def("matmul_v2(Tensor A, Tensor B) -> Tensor"); m.impl("matmul_v2", &matmul<matmul_v2>);
+  m.def("matmul_v3(Tensor A, Tensor B) -> Tensor"); m.impl("matmul_v3", &matmul<matmul_v3>);
 }

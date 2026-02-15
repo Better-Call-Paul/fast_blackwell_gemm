@@ -130,6 +130,31 @@ inline void init_tmap_2d_simple(
   check_cu(err);
 }
 
+inline void init_3d_tma_map(CUtensorMap *tmap, const __nv_bfloat16 *ptr, int K, int BK, uint64_t global_height, uint32_t shared_height)
+{
+	constexpr uint32_t rank = 3;
+    uint64_t globalDim[rank]       = {64, global_height, (uint64_t)K / 64};
+    uint64_t globalStrides[rank-1] = {(uint64_t)K * sizeof(nv_bfloat16), 128};  // in bytes
+    uint32_t boxDim[rank]          = {64, shared_height, (uint32_t)BK / 64};
+    uint32_t elementStrides[rank]  = {1, 1, 1};
+
+    auto err = cuTensorMapEncodeTiled(
+    	tmap,
+        CUtensorMapDataType::CU_TENSOR_MAP_DATA_TYPE_BFLOAT16,
+        rank,
+        (void *)ptr,
+        globalDim,
+        globalStrides,
+        boxDim,
+        elementStrides,
+        CUtensorMapInterleave::CU_TENSOR_MAP_INTERLEAVE_NONE,
+        CUtensorMapSwizzle::CU_TENSOR_MAP_SWIZZLE_128B,
+        CUtensorMapL2promotion::CU_TENSOR_MAP_L2_PROMOTION_NONE,
+        CUtensorMapFloatOOBfill::CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE
+    );
+    check_cu(err);
+}
+
 template<int CTA_GROUP = 1>
 __device__ inline
 void tcgen05_mma_bf16(int tmem_address, uint64_t a_descr, uint64_t b_descr, uint32_t i_descr, int enable_input_d)

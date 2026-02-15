@@ -128,6 +128,7 @@ def benchmark(shape: str):
         "v0",
         "v1",
         "v2",
+        "v3",
     ]:
         f = getattr(my_matmul, f"matmul_{version}")
         out = f(A, B)
